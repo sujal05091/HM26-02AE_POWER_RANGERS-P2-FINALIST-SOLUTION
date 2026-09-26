@@ -8,6 +8,7 @@
 *.pptx
 *.key
 submission/
+.claude/
 
 # Common build / dependency folders
 node_modules/
