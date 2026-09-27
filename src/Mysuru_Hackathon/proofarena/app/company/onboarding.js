@@ -20,6 +20,8 @@ const SAMPLE = {
   hrName: 'Priya Nair',
   hrRole: 'Talent Acquisition Lead',
   hrEmail: 'priya.nair@kaverisoftworks.example',
+  hrLinkedin: '',
+  team: 'Sneha Kulkarni · Engineering Manager\nVikram Joshi · Tech Lead, Payments',
 };
 
 export default function Onboarding() {
@@ -111,6 +113,12 @@ export default function Onboarding() {
               </div>
               <Field label="HR email" hint="Shown to students who finish your 3D Quest, in the Community Camp.">
                 <input id="co-hr-email" type="email" className={inputCls} value={form.hrEmail || ''} onChange={set('hrEmail')} placeholder="hr@yourcompany.com" />
+              </Field>
+              <Field label="HR LinkedIn (optional)" hint="Students who defeat an outpost in the 3D Quest battle unlock this profile.">
+                <input id="co-hr-linkedin" type="url" className={inputCls} value={form.hrLinkedin || ''} onChange={set('hrLinkedin')} placeholder="https://www.linkedin.com/in/your-hr" />
+              </Field>
+              <Field label="Hiring team (optional)" hint="One person per line: Name · Role · LinkedIn URL. Each one becomes an unlockable profile card in the 3D Quest battle.">
+                <textarea id="co-team" rows={3} className={inputCls} value={form.team || ''} onChange={set('team')} placeholder={'Sneha Kulkarni · Engineering Manager · https://www.linkedin.com/in/...\nVikram Joshi · Tech Lead'} />
               </Field>
               <Field label="Brand colour">
                 <div className="flex gap-2">

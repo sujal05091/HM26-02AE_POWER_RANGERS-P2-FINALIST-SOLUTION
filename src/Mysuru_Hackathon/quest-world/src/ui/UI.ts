@@ -5,10 +5,11 @@ import type { Interactable } from '../world/Landmarks';
 import { relics, TIMES, zoneById, zones, type TimeOfDay, type ZoneDef, type ZoneId } from '../world/layout';
 import { icons } from './icons';
 import { MapView } from './MapView';
-import { esc, play, quest, refreshQuest, stage } from '../quest/api';
+import { esc, play, quest, refreshQuest, stage, type Profile } from '../quest/api';
 import { McqGate } from '../quest/McqGate';
 import { ArrowGame } from '../quest/ArrowGame';
 import { CodeStage } from '../quest/CodeStage';
+import { SnakeGame } from '../quest/SnakeGame';
 import { objective, panels, trackerHTML } from '../quest/panels';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -96,6 +97,7 @@ export class UI {
         <button class="icon-btn" data-action="sound" title="Sound" aria-label="Toggle sound">${icons.sound}</button>
         <button class="icon-btn" data-action="settings" title="Settings" aria-label="Settings">${icons.settings}</button>
         <span class="q-points" title="Quest points"><b>0</b> pts</span>
+        <span class="q-contacts" title="Hiring-team profiles unlocked in battle">📇 <b>0</b>/<i>0</i></span>
         <button class="btn btn-sm battle-btn locked" data-action="battle" aria-pressed="false" title="Start or stop the battle (B) · unlocked by the rifle">${icons.target}<span>Rifle locked</span></button>
         <button class="icon-btn menu-btn" data-action="menu" aria-label="Open menu" aria-expanded="false">${icons.menu}</button>
       </div>
@@ -411,6 +413,8 @@ export class UI {
       enter.hidden = false;
       this.root.querySelector('.q-loader')?.classList.add('gate-open');
       if (!reducedMotion) gsap.from(enter.children, { y: 16, opacity: 0, scale: 0.9, stagger: 0.12, duration: 0.7, ease: 'back.out(2)' });
+      // Phones: the quiz sits below the intro, so bring the Enter button back into view.
+      if (window.innerWidth <= 900) window.setTimeout(() => enter.scrollIntoView({ behavior: 'smooth', block: 'center' }), 900);
     }
   }
 
@@ -422,6 +426,8 @@ export class UI {
     $('.q-obj-label', this.root).textContent = o?.label ?? '';
     if (this.worldReady) this.exp.setObjective(o ? (o.zone as ZoneId) : null);
     $('.q-points b', this.root).textContent = String(run?.points ?? 0);
+    $('.q-contacts b', this.root).textContent = String(quest.view?.unlocked.length ?? 0);
+    $('.q-contacts i', this.root).textContent = String(quest.view?.guards.length ?? 0);
     const btn = $('.battle-btn', this.root);
     btn.classList.toggle('locked', !run?.rifle);
     if (!this.exp?.battle) btn.querySelector('span')!.textContent = run?.rifle ? 'Start battle' : 'Rifle locked';
@@ -472,22 +478,45 @@ export class UI {
           this.holdWorld(false);
           if (earned) this.stageCleared('arrow');
         },
+        this.exp?.assets,
       );
       this.overlay = game;
       return;
     }
-    if (kind === 'debug' || kind === 'dsa') {
+    const openCode = (bugLines: number[] = []) => {
       this.overlay = new CodeStage(
         host,
-        kind,
+        kind as 'debug' | 'dsa',
         q,
         () => {
           this.holdWorld(false);
-          this.stageCleared(kind);
+          this.stageCleared(kind as 'debug' | 'dsa');
         },
         () => this.holdWorld(false),
+        bugLines,
       );
+    };
+    if (kind === 'debug' && !quest.view.snake?.done) {
+      // Debug Den opens with Snake Debug: eat the apple that names the bug, then the snake leads into the console.
+      // Snake Debug runs inside the live world (Snake Meadow), so the world keeps rendering; the HUD stays hidden.
+      this.exp.paused = false;
+      this.overlay = new SnakeGame(
+        host,
+        q,
+        quest.view.snake?.options ?? [],
+        (bugLines) => {
+          this.exp.paused = true;
+          refreshQuest().catch(() => null);
+          this.toast('🐍 Into the debug console', 'The snake is circling the lines that hold the bug. Fix them and make every test pass.', '#5fd68a', 6000);
+          openCode(bugLines);
+        },
+        () => this.holdWorld(false),
+        this.exp,
+      );
+      return;
     }
+    if (kind === 'debug') openCode(quest.view.snake?.bugLines ?? []);
+    else if (kind === 'dsa') openCode();
   }
 
   /** Pauses the 3D world while a stage is open, and resumes it afterwards. */
@@ -662,7 +691,13 @@ export class UI {
     this.syncBattle();
     this.flashHelp(3000);
     if (on) {
-      this.toast('Battle started', isTouch ? 'Use the red fire button and the grenade button. Stations are safe zones.' : 'Click the world to aim · LMB shoot · hold RMB to use the scope · G grenade · Esc frees the mouse.', '#ff7a5c', 5000);
+      const n = quest.view?.guards.length ?? 0;
+      this.toast(
+        'Battle started',
+        `${n ? `Each outpost guards a recruiter's profile: defeat it to unlock their LinkedIn and email (${quest.view?.unlocked.length ?? 0}/${n}). ` : ''}${isTouch ? 'Use the red fire button and the grenade button.' : 'Click to aim · LMB shoot · RMB scope · G grenade · Esc frees the mouse.'}`,
+        '#ff7a5c',
+        6500,
+      );
     } else {
       this.toast('Game stopped', 'Enemies are gone. Back to the quest.', '#7fd6c2', 3000);
       this.root.classList.remove('ghost');
@@ -714,11 +749,53 @@ export class UI {
     $('.enemies b', this.root).textContent = String(alive);
   }
 
-  onKill(alive: number, total: number) {
+  onKill(alive: number, total: number, outpost: number) {
     this.onEnemies(alive);
     const el = $('.enemies', this.root);
     if (!reducedMotion) gsap.fromTo(el, { scale: 1.5 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
-    if (alive > 0) this.toast('Enemy down', `${alive} of ${total} outposts still active.`, '#ff7a5c', 2200);
+    const guarded = quest.view?.guards[outpost];
+    if (!guarded) {
+      if (alive > 0) this.toast('Enemy down', `${alive} of ${total} outposts still active.`, '#ff7a5c', 2200);
+      return;
+    }
+    // The outpost guarded a hiring-team profile: the server records the unlock and sends the full card.
+    play<{ profile: Profile | null; fresh: boolean; count: number; total: number }>('unlock', { slot: outpost })
+      .then(async (r) => {
+        if (!r.profile) return;
+        await refreshQuest().catch(() => null);
+        this.syncQuest();
+        if (r.fresh) this.showProfileCard(r.profile, r.count, r.total);
+      })
+      .catch((err) => this.toast('Could not unlock the profile', esc((err as Error).message), '#ff7a5c'));
+  }
+
+  /** The "profile unlocked" card that slides in after defeating an outpost. */
+  private showProfileCard(p: Profile, count: number, total: number) {
+    const card = document.createElement('div');
+    card.className = 'q-profile-pop';
+    card.style.setProperty('--c', p.color);
+    const initials = p.name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+    card.innerHTML = `
+      <small>Profile unlocked · ${count}/${total}</small>
+      <div class="q-profile">
+        <span class="q-avatar">${esc(initials)}</span>
+        <div><strong>${esc(p.name)}</strong><span>${esc(p.role)} · ${esc(p.company)}</span>${p.hiringFor.length ? `<em>Hiring for ${esc(p.hiringFor.join(', '))}</em>` : ''}</div>
+      </div>
+      <div class="q-profile-actions">
+        ${p.linkedin ? `<a class="btn btn-primary btn-sm q-li" href="${esc(p.linkedin)}" target="_blank" rel="noopener noreferrer">in&nbsp; View LinkedIn</a>` : '<span class="q-li-none">LinkedIn not added by the company yet</span>'}
+        ${p.email ? `<button class="btn btn-ghost btn-sm" data-copy="${esc(p.email)}">✉ ${esc(p.email)}</button>` : ''}
+      </div>`;
+    this.root.appendChild(card);
+    this.exp.audio.chime('open');
+    if (!reducedMotion) gsap.fromTo(card, { x: 60, opacity: 0, scale: 0.9 }, { x: 0, opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.8)' });
+    window.setTimeout(() => {
+      gsap.to(card, { x: 60, opacity: 0, duration: 0.5, onComplete: () => card.remove() });
+    }, 9000);
   }
 
   onPlayerHurt() {

@@ -48,6 +48,24 @@ export interface QuestView {
   hall: { name: string; college: string; points: number; color: string }[];
   recruiters: { name: string; color: string; openings: string[] }[];
   community: CommunityJob[] | null;
+  /** One per enemy outpost: which company and role it guards (names stay hidden until unlocked). */
+  guards: { slot: number; company: string; color: string; role: string }[];
+  unlocked: Profile[];
+  /** Snake Debug: the 9 apple labels; once solved, the lines of the buggy code that hold the bug. */
+  snake: { options: string[]; done: boolean; bugLines: number[] };
+}
+
+/** A hiring-team member unlocked by defeating an outpost in battle. */
+export interface Profile {
+  id: string;
+  name: string;
+  role: string;
+  company: string;
+  color: string;
+  city?: string;
+  email: string;
+  linkedin: string;
+  hiringFor: string[];
 }
 
 export interface CodeResult {

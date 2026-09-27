@@ -10,6 +10,58 @@ export const QUEST_STAGES = [
   { id: 'dsa', title: 'Algorithm Grove', place: 'Algorithm Grove', reward: 'Community access' },
 ];
 
+// The Snake Debug game: 9 apples, one per kind of bug. The student eats the apple that names the planted bug.
+export const BUG_TYPES = [
+  'Off-by-one',
+  'Edge case',
+  'Wrong operator',
+  'Wrong variable',
+  'Normalize input',
+  'Wrong formula',
+  'Missing return',
+  'Infinite loop',
+  'Null / undefined',
+];
+
+/** Lines (1-based) of the buggy code that the fix changes. Comment-only and unchanged lines are skipped. */
+export function bugLinesFor(debug) {
+  const norm = (l) => l.replace(/\/\/.*$/, '').replace(/\s+/g, '');
+  const fixed = new Set(String(debug.reference).split('\n').map(norm).filter(Boolean));
+  const out = [];
+  String(debug.buggyCode)
+    .split('\n')
+    .forEach((line, i) => {
+      const n = norm(line);
+      if (n && !fixed.has(n) && !/^function/.test(n)) out.push(i + 1);
+    });
+  return out.length ? out : [2];
+}
+
+/** The planted bug's category: set by the bank or the AI, otherwise guessed from the fix. */
+export function bugTypeFor(debug) {
+  if (BUG_TYPES.includes(debug.bugType)) return debug.bugType;
+  const b = String(debug.buggyCode), r = String(debug.reference);
+  if (/toLowerCase|toUpperCase|trim\(|replace\(/.test(r) && !/toLowerCase|toUpperCase|trim\(|replace\(/.test(b)) return 'Normalize input';
+  if (/length\s*-\s*1|<=|>=/.test(b + r) && b.replace(/\s/g, '') !== r.replace(/\s/g, '') && /for\s*\(/.test(b)) return 'Off-by-one';
+  if (/Math\.(max|min)|===\s*null|undefined|\?\?|\?\./.test(r) && !/Math\.(max|min)/.test(b)) return /null|undefined|\?\?|\?\./.test(r) ? 'Null / undefined' : 'Edge case';
+  if (/return/.test(r) && (r.match(/return/g) || []).length > (b.match(/return/g) || []).length) return 'Missing return';
+  return 'Wrong formula';
+}
+
+// AI models like to label the planted bug ("// off-by-one bug"); remove comments that would give it away.
+const HINT = /\b(bug|buggy|fix|fixed|wrong|incorrect|off[- ]by[- ]one|should be|mistake|error here)\b/i;
+export const stripHints = (code) =>
+  String(code)
+    .split('\n')
+    .map((line) => {
+      const at = line.indexOf('//');
+      if (at < 0 || !HINT.test(line.slice(at))) return line;
+      const code = line.slice(0, at).replace(/\s+$/, '');
+      return code.trim() ? code : null; // a comment-only hint line disappears entirely
+    })
+    .filter((line) => line !== null)
+    .join('\n');
+
 const parseCases = (cases) =>
   (cases || []).map((c) => ({ args: JSON.parse(c.argsJson), expected: JSON.parse(c.expectedJson) })).filter((c) => Array.isArray(c.args));
 
@@ -38,7 +90,7 @@ async function cleanCode(ai) {
       (await verifyTask({ reference: d.reference, broken: d.buggyCode, functionName: d.functionName, tests })) &&
       (await verifyTask({ reference: d.reference, functionName: d.functionName, tests: [...tests, ...hidden] }))
     ) {
-      out.debug = { title: d.title, story: d.story, functionName: d.functionName, buggyCode: d.buggyCode, reference: d.reference, tests, hidden, hint: d.hint };
+      out.debug = { title: d.title, story: d.story, functionName: d.functionName, buggyCode: stripHints(d.buggyCode), reference: d.reference, tests, hidden, hint: d.hint, bugType: BUG_TYPES.includes(d.bugType) ? d.bugType : undefined };
     }
   } catch {}
   try {

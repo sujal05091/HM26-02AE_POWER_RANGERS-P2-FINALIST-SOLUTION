@@ -182,7 +182,7 @@ const QUIZ_JSON = {
 
 const testCase = z.object({ argsJson: z.string(), expectedJson: z.string() });
 const CodeSchema = z.object({
-  debug: z.object({ title: z.string(), story: z.string(), functionName: z.string(), buggyCode: z.string(), reference: z.string(), hint: z.string(), tests: z.array(testCase), hidden: z.array(testCase) }),
+  debug: z.object({ title: z.string(), story: z.string(), functionName: z.string(), buggyCode: z.string(), reference: z.string(), hint: z.string(), tests: z.array(testCase), hidden: z.array(testCase), bugType: z.string() }),
   dsa: z.object({ title: z.string(), statement: z.string(), functionName: z.string(), starterCode: z.string(), reference: z.string(), examples: z.array(testCase), hidden: z.array(testCase) }),
 });
 const TEST_JSON = { type: 'array', items: { type: 'object', properties: { argsJson: { type: 'string' }, expectedJson: { type: 'string' } }, required: ['argsJson', 'expectedJson'], additionalProperties: false } };
@@ -191,8 +191,8 @@ const CODE_JSON = {
   properties: {
     debug: {
       type: 'object',
-      properties: { title: { type: 'string' }, story: { type: 'string' }, functionName: { type: 'string' }, buggyCode: { type: 'string' }, reference: { type: 'string' }, hint: { type: 'string' }, tests: TEST_JSON, hidden: TEST_JSON },
-      required: ['title', 'story', 'functionName', 'buggyCode', 'reference', 'hint', 'tests', 'hidden'],
+      properties: { title: { type: 'string' }, story: { type: 'string' }, functionName: { type: 'string' }, buggyCode: { type: 'string' }, reference: { type: 'string' }, hint: { type: 'string' }, tests: TEST_JSON, hidden: TEST_JSON, bugType: { type: 'string', enum: ['Off-by-one', 'Edge case', 'Wrong operator', 'Wrong variable', 'Normalize input', 'Wrong formula', 'Missing return', 'Infinite loop', 'Null / undefined'] } },
+      required: ['title', 'story', 'functionName', 'buggyCode', 'reference', 'hint', 'tests', 'hidden', 'bugType'],
       additionalProperties: false,
     },
     dsa: {
@@ -311,7 +311,7 @@ export async function aiQuestCode({ title, skills }) {
   if (!aiEnabled()) return null;
   const system =
     'You write two small JavaScript coding tasks for a hiring quest. Both are pure functions (no I/O, no imports), solvable in 10-15 minutes. ' +
-    'debug: a realistic function with ONE subtle bug (off-by-one, wrong comparison, missing edge case). buggyCode contains the bug; reference is the fixed version with the SAME function name and signature. story explains the symptom a user sees (not the fix). tests: 3 visible cases that the reference passes and buggyCode fails at least one; hidden: 3 more cases (edge cases such as empty input, negatives, duplicates) so hard-coding the visible answers fails. ' +
+    'debug: a realistic function with ONE subtle bug (off-by-one, wrong comparison, missing edge case). buggyCode contains the bug and must NOT contain any comment that hints at the bug or its location (the student has to find it); reference is the fixed version with the SAME function name and signature. story explains the symptom a user sees (not the fix). bugType names the kind of bug (exactly one of the allowed values). tests: 3 visible cases that the reference passes and buggyCode fails at least one; hidden: 3 more cases (edge cases such as empty input, negatives, duplicates) so hard-coding the visible answers fails. ' +
     'dsa: a classic data-structures/algorithms problem themed to the job. starterCode is only the empty function signature with a comment. reference is a correct efficient solution. examples: 2 cases, hidden: 5 extra cases including edge cases (empty/single element, duplicates, negatives, larger input). ' +
     'argsJson is a JSON array of the arguments, e.g. "[[2,7,11,15], 9]". expectedJson is the JSON of the return value. Reply with JSON only.';
   const user = `Role: ${title}\nSkills: ${skills.join(', ')}`;

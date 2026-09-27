@@ -13,7 +13,8 @@ export interface CombatEvents {
   onPlayerHealth: (hp: number, max: number) => void;
   onGrenades: (count: number) => void;
   onEnemies: (alive: number, total: number) => void;
-  onKill: (alive: number, total: number) => void;
+  /** `outpost` is the index of the defeated enemy (each outpost guards one unlockable profile). */
+  onKill: (alive: number, total: number, outpost: number) => void;
   onPlayerHurt: () => void;
   onPlayerDeath: () => void;
   onPickup: (kind: 'health' | 'grenade') => void;
@@ -298,7 +299,7 @@ export class Combat {
 
   private onEnemyKilled(enemy: Enemy, _time: number) {
     const alive = this.aliveCount;
-    this.events.onKill(alive, this.total);
+    this.events.onKill(alive, this.total, this.enemies.indexOf(enemy));
     this.audio.enemyDown();
     if (Math.random() < 0.6) this.addPickup('health', enemy.position.x + 0.8, enemy.position.z + 0.8, true);
     if (alive === 0 && !this.cleared) {
