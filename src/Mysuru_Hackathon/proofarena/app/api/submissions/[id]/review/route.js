@@ -1,5 +1,5 @@
 import { handle, body } from '@/lib/api';
-import { updateDb, uid } from '@/lib/db';
+import { updateDb, uid, inBackground } from '@/lib/db';
 import { after } from 'next/server';
 import { publishReview, prepareCodeViva } from '@/lib/missions';
 
@@ -32,7 +32,7 @@ export const POST = handle(async (request, { params }) => {
       if (Object.values(rubric).some((v) => typeof v !== 'number')) throw new Error('Score all four rubric items');
       if (sub.comments.some((c) => c.status === 'draft')) throw new Error('Confirm or reject every AI draft comment first');
       publishReview(db, sub, { rubric, note: b.note });
-      if (sub.track === 'review') after(() => prepareCodeViva(sub.id));
+      if (sub.track === 'review') after(() => inBackground(() => prepareCodeViva(sub.id)));
     } else {
       throw new Error('Unknown action');
     }

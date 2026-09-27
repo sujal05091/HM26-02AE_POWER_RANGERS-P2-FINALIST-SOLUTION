@@ -94,7 +94,12 @@ export function createSeed() {
       website: 'chamundicloud.example',
       about: 'We run hosting and CI infrastructure for Karnataka startups.',
       color: '#0E7C66',
-      hr: { name: 'Arjun Menon', role: 'Head of Talent', email: 'careers@chamundicloud.example', slots: ['Mon 11:00 AM', 'Tue 4:00 PM', 'Thu 6:30 PM'] },
+      hr: { name: 'Arjun Menon', role: 'Head of Talent', email: 'careers@chamundicloud.example', linkedin: '', slots: ['Mon 11:00 AM', 'Tue 4:00 PM', 'Thu 6:30 PM'] },
+      // Fictional demo people. Companies add real LinkedIn links in their profile.
+      team: [
+        { name: 'Kavya Rao', role: 'Engineering Manager', linkedin: '' },
+        { name: 'Rohan Shetty', role: 'Senior Backend Engineer', linkedin: '' },
+      ],
       createdAt: daysAgo(20),
     },
   ];

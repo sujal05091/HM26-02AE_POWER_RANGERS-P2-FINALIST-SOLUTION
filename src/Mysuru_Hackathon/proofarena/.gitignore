@@ -43,3 +43,6 @@ next-env.d.ts
 # ProofArena demo data
 /data
 /.workspaces
+
+# The example env file is documentation, not secrets
+!.env.local.example

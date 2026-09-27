@@ -1,8 +1,13 @@
-// Wraps a route handler: returns JSON, and turns thrown errors into a 400 with a message.
+import { syncDb, flushDb } from './db';
+
+// Wraps a route handler: loads the latest data (Redis when hosted), returns JSON, waits for writes to be saved,
+// and turns thrown errors into a 400 with a message.
 export function handle(fn) {
   return async (request, context) => {
     try {
+      await syncDb();
       const result = await fn(request, context);
+      await flushDb();
       return Response.json(result ?? { ok: true });
     } catch (err) {
       console.error('[api]', err);

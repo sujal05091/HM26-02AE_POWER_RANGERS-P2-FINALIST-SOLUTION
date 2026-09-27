@@ -1,5 +1,5 @@
 import { readDb, updateDb, uid, logActivity } from './db';
-import { publicQuest } from './quest';
+import { publicQuest, BUG_TYPES, bugTypeFor, bugLinesFor } from './quest';
 import { runFunctionTests } from './codeRunner';
 import { awardXp } from './scoring';
 
@@ -65,7 +65,30 @@ export function questView(questId, studentId) {
     hall: hallFor(db, questId),
     recruiters: db.companies.map((c) => ({ name: c.name, color: c.color, openings: db.openings.filter((o) => o.companyId === c.id).map((o) => o.title) })),
     community: run?.stage === 'done' ? communityFor(db, quest) : null,
+    // Battle rewards: each outpost guards one hiring-team profile. Locked slots only reveal the company and role;
+    // names, emails and LinkedIn links are sent only once the student has unlocked that profile.
+    guards: profilesFor(db, quest).map((p, slot) => ({ slot, company: p.company, color: p.color, role: p.role })),
+    unlocked: (run?.unlocked || []).map((id) => profilesFor(db, quest).find((p) => p.id === id)).filter(Boolean),
+    // Snake Debug (the Debug Den's opening game): the 9 apple labels, and once solved, which lines hold the bug.
+    snake: {
+      options: BUG_TYPES,
+      done: !!run?.snake?.done,
+      bugLines: run?.snake?.done ? bugLinesFor(quest.debug) : [],
+    },
   };
+}
+
+// Everyone a student can unlock in battle: the quest company's HR and team first, then other hiring companies.
+export function profilesFor(db, quest) {
+  const companies = [...db.companies].sort((a, b) => (a.id === quest.companyId ? -1 : b.id === quest.companyId ? 1 : 0));
+  const out = [];
+  for (const c of companies) {
+    const hiringFor = [...new Set(db.quests.filter((q) => q.companyId === c.id).flatMap((q) => q.skills))].slice(0, 4);
+    const base = { companyId: c.id, company: c.name, color: c.color, city: c.city, hiringFor };
+    if (c.hr) out.push({ ...base, id: `${c.id}:hr`, name: c.hr.name, role: c.hr.role, email: c.hr.email, linkedin: c.hr.linkedin || '' });
+    (c.team || []).forEach((m, i) => out.push({ ...base, id: `${c.id}:team${i}`, name: m.name, role: m.role, email: '', linkedin: m.linkedin || '' }));
+  }
+  return out;
 }
 
 function ensureRun(db, quest, studentId) {
@@ -100,6 +123,47 @@ export async function playStage(questId, studentId, action, payload) {
       if (run?.stage !== 'done') throw new Error('Finish all four stages to join the community');
       run.joinedAt ||= new Date().toISOString();
       return { ok: true };
+    });
+  }
+  if (action === 'snake') {
+    // The snake ate an apple: is it the right kind of bug? The answer never leaves the server; a correct pick
+    // unlocks the Debug Den's editor and reveals which lines hold the bug (the snake circles them).
+    if (current !== 'debug') throw new Error(current === 'done' ? 'You already finished this quest' : `Finish the ${current} stage first`);
+    const pick = String(payload.pick || '');
+    if (!BUG_TYPES.includes(pick)) throw new Error('Unknown apple');
+    const correct = pick === bugTypeFor(quest.debug);
+    return updateDb((db) => {
+      const run = findRun(db, questId, studentId);
+      run.snake ||= { done: false, wrong: 0, games: 0 };
+      if (payload.newGame) run.snake.games++;
+      if (!correct) {
+        run.snake.wrong++;
+        return { correct: false };
+      }
+      if (!run.snake.done) {
+        run.snake.done = true;
+        run.points += Math.max(10, 40 - run.snake.wrong * 5);
+      }
+      return { correct: true, bugType: pick, bugLines: bugLinesFor(quest.debug) };
+    });
+  }
+  if (action === 'unlock') {
+    // Defeating an outpost in battle unlocks the profile it guards. Battle needs the rifle from the Arrow Range.
+    return updateDb((db) => {
+      const run = findRun(db, questId, studentId);
+      if (!run?.rifle) throw new Error('Win the rifle at the Arrow Range first');
+      const profile = profilesFor(db, quest)[Number(payload.slot)];
+      if (!profile) return { profile: null, bonus: true };
+      run.unlocked ||= [];
+      const fresh = !run.unlocked.includes(profile.id);
+      if (fresh) {
+        run.unlocked.push(profile.id);
+        run.points += 15;
+        const student = db.students.find((s) => s.id === studentId);
+        awardXp(student, 25, null);
+        logActivity(db, `${student.name} unlocked ${profile.name}'s profile (${profile.company}) in battle`, student.id);
+      }
+      return { profile, fresh, total: profilesFor(db, quest).length, count: run.unlocked.length };
     });
   }
   if (action !== current) throw new Error(current === 'done' ? 'You already finished this quest' : `Finish the ${current} stage first`);

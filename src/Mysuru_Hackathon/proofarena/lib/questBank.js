@@ -107,6 +107,7 @@ function cartTotal(items) {
       { args: [[{ price: 250, qty: 4 }]], expected: 1000 },
     ],
     hint: 'Look closely at where the loop stops.',
+    bugType: 'Off-by-one',
   },
   {
     title: 'Discount makes prices negative',
@@ -132,6 +133,7 @@ function applyDiscount(price, percent) {
       { args: [1000, 0], expected: 1000 },
     ],
     hint: 'Clamp the percent between 0 and 100 before using it.',
+    bugType: 'Edge case',
   },
   {
     title: 'Palindrome checker says "Madam" is not a palindrome',
@@ -157,6 +159,7 @@ function isPalindrome(text) {
       { args: ['Mysuru'], expected: false },
     ],
     hint: 'Normalise the text first: lower case, no spaces.',
+    bugType: 'Normalize input',
   },
 ];
 

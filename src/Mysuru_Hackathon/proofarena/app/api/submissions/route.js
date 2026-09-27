@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import { handle, body, required } from '@/lib/api';
-import { updateDb, uid, logActivity } from '@/lib/db';
+import { updateDb, uid, logActivity, inBackground } from '@/lib/db';
 import { runReviewPipeline, PIPELINE } from '@/lib/review';
 import { getChallenge } from '@/lib/challenge';
 
@@ -47,6 +47,6 @@ export const POST = handle(async (request) => {
     logActivity(db, `${student.name} ${previous.length ? 'retook' : 'submitted'} ${challenge.title}`, student.id);
     return s;
   });
-  after(() => runReviewPipeline(sub.id));
+  after(() => inBackground(() => runReviewPipeline(sub.id)));
   return sub;
 });

@@ -55,7 +55,7 @@ async function boot() {
     onPlayerHealth: (hp, max) => ui.onPlayerHealth(hp, max),
     onGrenades: (n) => ui.onGrenades(n),
     onEnemies: (alive) => ui.onEnemies(alive),
-    onKill: (alive, total) => ui.onKill(alive, total),
+    onKill: (alive, total, outpost) => ui.onKill(alive, total, outpost),
     onPlayerHurt: () => ui.onPlayerHurt(),
     onPlayerDeath: () => ui.onPlayerDeath(),
     onPickup: (kind) => ui.onPickup(kind),
