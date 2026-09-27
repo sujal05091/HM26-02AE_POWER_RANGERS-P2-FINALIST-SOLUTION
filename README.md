@@ -3,7 +3,7 @@
 > **"Show what you can build, not just your resume."**  
 > ProofArena is an end-to-end, anti-cheat proof-of-work hiring platform and 3D gamified assessment engine. Students build real-world software, receive AI + human code reviews, and prove original authorship through live in-browser coding challenges, 3D gamified quests, and AI viva defenses.
 
-🚀 **Live Deployed Application**: [https://proof-arena-myore.vercel.app/](https://proof-arena-myore.vercel.app/)
+🚀 **Live Deployed Application**: [https://hack-mysuru.vercel.app/](https://hack-mysuru.vercel.app/)
 
 ---
 
