@@ -1,6 +1,0 @@
-{
-  "buildCommand": "cd src/Mysuru_Hackathon/proofarena && npm run build",
-  "outputDirectory": "src/Mysuru_Hackathon/proofarena/.next",
-  "installCommand": "cd src/Mysuru_Hackathon/proofarena && npm install",
-  "framework": "nextjs"
-}
